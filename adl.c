@@ -169,9 +169,12 @@ char *adl_error_desc(int error)
     case ADL_ERR_SET_INCOMPLETE:
       result = "Failed to update some of the values";
       break;
+#if defined (UNIX)
     case ADL_ERR_NO_XDISPLAY:
       result = "No Linux XDisplay in Linux Console environment";
       break;
+#endif
+
     default:
       result = "Unhandled error";
       break;

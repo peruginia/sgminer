@@ -35,15 +35,15 @@
 #include "algorithm/lyra2re.h"
 #include "algorithm/lyra2rev2.h"
 #include "algorithm/pluck.h"
-#include "algorithm/yescrypt.h"
+//#include "algorithm/yescrypt.h"
 #include "algorithm/credits.h"
 #include "algorithm/blake256.h"
 #include "algorithm/blakecoin.h"
 #include "algorithm/sia.h"
 #include "algorithm/decred.h"
 #include "algorithm/pascal.h"
-#include "algorithm/lbry.h"
-#include "algorithm/sibcoin.h"
+//#include "algorithm/lbry.h"
+//#include "algorithm/sibcoin.h"
 
 #include "compat.h"
 
@@ -1159,13 +1159,13 @@ static algorithm_settings_t algos[] = {
 #undef A_DECRED
 
 #define A_YESCRYPT(a) \
-  { a, ALGO_YESCRYPT, "", 1, 65536, 65536, 0, 0, 0xFF, 0xFFFF000000000000ULL, 0x0000ffffUL, 0, -1, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, yescrypt_regenhash, NULL, NULL, queue_yescrypt_kernel, gen_hash, append_neoscrypt_compiler_options}
-  A_YESCRYPT("yescrypt"),
+//  { a, ALGO_YESCRYPT, "", 1, 65536, 65536, 0, 0, 0xFF, 0xFFFF000000000000ULL, 0x0000ffffUL, 0, -1, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, yescrypt_regenhash, NULL, NULL, queue_yescrypt_kernel, gen_hash, append_neoscrypt_compiler_options}
+//  A_YESCRYPT("yescrypt"),
 #undef A_YESCRYPT
 
 #define A_YESCRYPT_MULTI(a) \
-  { a, ALGO_YESCRYPT_MULTI, "", 1, 65536, 65536, 0, 0, 0xFF, 0xFFFF000000000000ULL, 0x0000ffffUL, 6,-1,CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , yescrypt_regenhash, NULL, NULL, queue_yescrypt_multikernel, gen_hash, append_neoscrypt_compiler_options}
-  A_YESCRYPT_MULTI("yescrypt-multi"),
+  //{ a, ALGO_YESCRYPT_MULTI, "", 1, 65536, 65536, 0, 0, 0xFF, 0xFFFF000000000000ULL, 0x0000ffffUL, 6,-1,CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE , yescrypt_regenhash, NULL, NULL, queue_yescrypt_multikernel, gen_hash, append_neoscrypt_compiler_options}
+  //A_YESCRYPT_MULTI("yescrypt-multi"),
 #undef A_YESCRYPT_MULTI
 
   // kernels starting from this will have difficulty calculated by using quarkcoin algorithm
@@ -1181,7 +1181,7 @@ static algorithm_settings_t algos[] = {
 #define A_DARK(a, b) \
   { a, ALGO_X11, "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 0, 0, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, b, NULL, NULL, queue_sph_kernel, gen_hash, append_x11_compiler_options }
   A_DARK("darkcoin", darkcoin_regenhash),
-  A_DARK("sibcoin", sibcoin_regenhash),  
+  //A_DARK("sibcoin", sibcoin_regenhash),  
   A_DARK("inkcoin", inkcoin_regenhash),
   A_DARK("myriadcoin-groestl", myriadcoin_groestl_regenhash),
 #undef A_DARK
@@ -1191,7 +1191,7 @@ static algorithm_settings_t algos[] = {
 
   { "darkcoin-mod", ALGO_X11, "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 10, 8 * 16 * 4194304, 0, darkcoin_regenhash, NULL, NULL, queue_darkcoin_mod_kernel, gen_hash, append_x11_compiler_options },
 
-  { "sibcoin-mod", ALGO_X11, "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 11, 2 * 16 * 4194304, 0, sibcoin_regenhash, NULL, NULL, queue_sibcoin_mod_kernel, gen_hash, append_x11_compiler_options },
+//  { "sibcoin-mod", ALGO_X11, "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 11, 2 * 16 * 4194304, 0, sibcoin_regenhash, NULL, NULL, queue_sibcoin_mod_kernel, gen_hash, append_x11_compiler_options },
   
   { "marucoin", ALGO_X13, "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 0, 0, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, marucoin_regenhash, NULL, NULL, queue_sph_kernel, gen_hash, append_x13_compiler_options },
   { "marucoin-mod", ALGO_X13, "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 12, 8 * 16 * 4194304, 0, marucoin_regenhash, NULL, NULL, queue_marucoin_mod_kernel, gen_hash, append_x13_compiler_options },
@@ -1226,7 +1226,7 @@ static algorithm_settings_t algos[] = {
   { "sia",         ALGO_SIA,       "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000FFFFUL, 0, 128, 0, sia_regenhash, NULL, NULL, queue_sia_kernel, NULL, NULL },
   { "vanilla",     ALGO_VANILLA,   "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x000000ffUL, 0, 128, 0, blakecoin_regenhash, blakecoin_midstate, blakecoin_prepare_work, queue_blake_kernel, gen_hash, NULL },
 
-  { "lbry", ALGO_LBRY, "", 1, 256, 256, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 2, 4 * 8 * 4194304, 0, lbry_regenhash, NULL, NULL, queue_lbry_kernel, gen_hash, NULL },
+//  { "lbry", ALGO_LBRY, "", 1, 256, 256, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 2, 4 * 8 * 4194304, 0, lbry_regenhash, NULL, NULL, queue_lbry_kernel, gen_hash, NULL },
 
   { "pascal", ALGO_PASCAL, "", 1, 1, 1, 0, 0, 0xFF, 0xFFFFULL, 0x0000ffffUL, 0, 0, CL_QUEUE_OUT_OF_ORDER_EXEC_MODE_ENABLE, pascal_regenhash, pascal_midstate, NULL, queue_pascal_kernel, NULL, NULL },
 
