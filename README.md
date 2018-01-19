@@ -1,6 +1,9 @@
 # sgminer
 
-
+Customization from original project
+   - Addes support for pascal-json protocol (in the pool address set the url like stratum "pascaljson+tcp://127.0.0.1:4009"
+   - Full compilable with Visual Studio 2017
+   
 ## Introduction
 
 This is a multi-threaded multi-pool GPU miner with ATI GPU monitoring,
