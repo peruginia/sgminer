@@ -1662,6 +1662,49 @@ out:
   return ret;
 }
 
+static bool parse_notify_pascal(struct pool *pool, json_t *val)
+{
+	int ret;
+	uint32_t blocknum, version, diff, timestamp;
+	char *part1, *payloadprefix, *part3, *PoWTarget;
+
+	ret = json_unpack(json_array_get(val, 0), "{s:i, s:i, s:s, s:s, s:s, s:i, s:s, s:i}", "block", &blocknum, "version", &version, "part1", &part1,
+		"payload_start", &payloadprefix, "part3", &part3, "target", &diff, "target_pow", &PoWTarget, "timestamp", &timestamp);
+
+	if (ret)
+	{
+		applog(LOG_NOTICE, "Failed to parse data from PascalCoin daemon.");
+		return(false);
+	}
+
+	if (strlen(payloadprefix) != 32)
+	{
+		applog(LOG_NOTICE, "Payload prefix from daemon is of an unexpected size.");
+		return(false);
+	}
+
+	// WARNING: Unsafe
+	// TODO: Add error checking
+	hex2bin(pool->swork.part1, part1, 90);
+	hex2bin(pool->swork.part3, part3, 68);
+	hex2bin(pool->swork.payload_prefix, payloadprefix, strlen(payloadprefix) >> 1);
+	hex2bin(pool->swork.tgt, PoWTarget, 32);
+
+	pool->swork.timestamp = timestamp;
+	pool->swork.prefixlen = strlen(payloadprefix) >> 1;
+	pool->next_diff = pool->swork.diff = diff;
+	pool->swork.clean = 1;
+	pool->PASCPayloadNonce = 32;
+	pool->PASCHeight = blocknum;
+
+	pool->getwork_requested++;
+	total_getworks++;
+
+	if (pool == current_pool()) opt_work_update = true;
+
+	return true;
+}
+
 static bool parse_diff(struct pool *pool, json_t *val)
 {
   double old_diff, diff;
@@ -1870,6 +1913,13 @@ bool parse_method(struct pool *pool, char *s)
     goto done;
   }
 
+  if (!strncasecmp(buf, "miner-notify", 12))
+  {
+	  if (parse_notify_pascal(pool, params)) pool->stratum_notify = ret = true;
+	  else pool->stratum_notify = ret = false;
+	  goto done;
+  }
+
   if (!strncasecmp(buf, "mining.set_difficulty", 21) && parse_diff(pool, params)) {
     ret = true;
     goto done;
@@ -1981,50 +2031,56 @@ bool auth_stratum(struct pool *pool)
   json_error_t err;
   bool ret = false;
 
-  sprintf(s, "{\"id\": %d, \"method\": \"mining.authorize\", \"params\": [\"%s\", \"%s\"]}",
-    swork_id++, pool->rpc_user, pool->rpc_pass);
-
-  if (!stratum_send(pool, s, strlen(s))) {
-    return ret;
+  if (pool->has_pascaljson == true) {
+	  return true;
   }
+  else
+  {
+	  sprintf(s, "{\"id\": %d, \"method\": \"mining.authorize\", \"params\": [\"%s\", \"%s\"]}",
+		  swork_id++, pool->rpc_user, pool->rpc_pass);
 
-  /* Parse all data in the queue and anything left should be auth */
-  while (42) {
-    sret = recv_line(pool);
+	  if (!stratum_send(pool, s, strlen(s))) {
+		  return ret;
+	  }
 
-    if (!sret) {
-      return ret;
-    }
-    else if (parse_method(pool, sret)) {
-      free(sret);
-    }
-    else {
-      break;
-    }
+	  /* Parse all data in the queue and anything left should be auth */
+	  while (42) {
+		  sret = recv_line(pool);
+
+		  if (!sret) {
+			  return ret;
+		  }
+		  else if (parse_method(pool, sret)) {
+			  free(sret);
+		  }
+		  else {
+			  break;
+		  }
+	  }
+
+	  val = JSON_LOADS(sret, &err);
+	  free(sret);
+	  res_val = json_object_get(val, "result");
+	  err_val = json_object_get(val, "error");
+
+	  if (!res_val || json_is_false(res_val) || (err_val && !json_is_null(err_val))) {
+		  char *ss;
+
+		  if (err_val)
+			  ss = json_dumps(err_val, JSON_INDENT(3));
+		  else
+			  ss = strdup("(unknown reason)");
+		  applog(LOG_INFO, "%s JSON stratum auth failed: %s", get_pool_name(pool), ss);
+		  free(ss);
+
+		  suspend_stratum(pool);
+
+		  goto out;
+	  }
+
+	  ret = true;
+	  applog(LOG_INFO, "Stratum authorisation success for %s", get_pool_name(pool));
   }
-
-  val = JSON_LOADS(sret, &err);
-  free(sret);
-  res_val = json_object_get(val, "result");
-  err_val = json_object_get(val, "error");
-
-  if (!res_val || json_is_false(res_val) || (err_val && !json_is_null(err_val)))  {
-    char *ss;
-
-    if (err_val)
-      ss = json_dumps(err_val, JSON_INDENT(3));
-    else
-      ss = strdup("(unknown reason)");
-    applog(LOG_INFO, "%s JSON stratum auth failed: %s", get_pool_name(pool), ss);
-    free(ss);
-
-    suspend_stratum(pool);
-
-    goto out;
-  }
-
-  ret = true;
-  applog(LOG_INFO, "Stratum authorisation success for %s", get_pool_name(pool));
   pool->probed = true;
   successful_connect = true;
 
@@ -2477,6 +2533,17 @@ resend:
   }
 
   sockd = true;
+
+
+  if (pool->has_pascaljson == true)
+  {
+	  if (!pool->stratum_url)
+		  pool->stratum_url = pool->sockaddr_url;
+
+	  pool->stratum_active = true;
+	  json_decref(val);
+	  return true;
+  }
 
   if (recvd) {
     /* Get rid of any crap lying around if we're resending */

@@ -215,8 +215,15 @@ static cl_int queue_pascal_kernel(struct __clState *clState, struct _dev_blk_ctx
   cl_int status = 0;
 
   le_target = *(cl_ulong *)(blk->work->device_target + 24);
-  flip196(clState->cldata, blk->work->data);
-  status = clEnqueueWriteBuffer(clState->commandQueue, clState->CLbuffer0, true, 0, 196, clState->cldata, 0, NULL, NULL);
+  if (blk->work->pool->has_pascaljson == true) {
+	  for (int i = 0; i < 9; ++i) ((uint32_t *)clState->cldata)[i] = swab32(((uint32_t *)(blk->work->data + 256))[i]);
+	  status = clEnqueueWriteBuffer(clState->commandQueue, clState->CLbuffer0, true, 0, 292 - 256, clState->cldata, 0, NULL, NULL);
+  }
+  else
+  {
+	  flip196(clState->cldata, blk->work->data);
+	  status = clEnqueueWriteBuffer(clState->commandQueue, clState->CLbuffer0, true, 0, 196, clState->cldata, 0, NULL, NULL);
+  }
 
   CL_SET_ARG(clState->CLbuffer0);
   CL_SET_ARG(clState->outputBuffer);

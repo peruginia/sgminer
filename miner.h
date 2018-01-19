@@ -1325,6 +1325,11 @@ struct stratum_work {
   char *ntime;
   bool clean;
 
+  /* PascalCoin vars */
+  unsigned char part1[90], payload_prefix[255], part3[68], tgt[32];
+  uint32_t timestamp;
+  size_t prefixlen;
+
   size_t cb_len;
   size_t header_len;
   int merkles;
@@ -1429,6 +1434,8 @@ struct pool {
 
   /* Stratum variables */
   bool has_stratum;
+  bool has_pascaljson = false;
+
   char *stratum_url;
   char *stratum_port;
   struct addrinfo stratum_hints;
@@ -1478,6 +1485,10 @@ struct pool {
   double next_diff;
   int merkle_offset;
 
+  /* PASC variables */
+  unsigned char PASCPayloadNonce;
+  uint32_t PASCHeight;
+
   struct timeval tv_lastwork;
 };
 
@@ -1489,10 +1500,11 @@ struct pool {
 #define GETWORK_MODE_GBT 'G'
 
 struct work {
-  unsigned char data[256];
+  unsigned char data[512]; // 256
   unsigned char midstate[32];
   unsigned char target[32];
   unsigned char hash[32];
+  uint32_t PASCHeight;
 
   unsigned char device_target[32];
   double    device_diff;
@@ -1521,6 +1533,7 @@ struct work {
   char    *job_id;
   uint64_t  nonce2;
   size_t    nonce2_len;
+  uint32_t PASCDataLen;
   char    *ntime;
   double    sdiff;
   char    *nonce1;

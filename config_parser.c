@@ -176,7 +176,7 @@ struct profile *get_gpu_profile(int gpuid)
 
 /******* Default profile functions used during config parsing *****/
 char *set_default_algorithm(const char *arg)
-{
+{  
   set_algorithm(&default_profile.algorithm, arg);
   applog(LOG_INFO, "Set default algorithm to %s", default_profile.algorithm.name);
 
