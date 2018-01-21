@@ -189,7 +189,9 @@ _clState *initCl(unsigned int gpu, char *name, size_t nameSize, algorithm_t *alg
 	_clState *clState = (_clState *)calloc(1, sizeof(_clState));
 	cl_uint preferred_vwidth, numDevices = clDevicesNum();
 	cl_device_id *devices = (cl_device_id *)alloca(numDevices * sizeof(cl_device_id));
+	
 	build_kernel_data *build_data = (build_kernel_data *)alloca(sizeof(struct _build_kernel_data));
+	
 	char **pbuff = (char **)alloca(sizeof(char *) * numDevices), filename[256];
 
   // sanity check
@@ -763,6 +765,7 @@ _clState *initCl(unsigned int gpu, char *name, size_t nameSize, algorithm_t *alg
   else if (algorithm->type == ALGO_DECRED) readbufsize = 192;
   else if (algorithm->type == ALGO_LBRY) readbufsize = 112;
   else if (algorithm->type == ALGO_PASCAL) readbufsize = 196;
+  else if (algorithm->type == ALGO_PASCALSOLO) readbufsize = 196;
 
   if (algorithm->rw_buffer_size < 0) {
     // calc buffer size for neoscrypt

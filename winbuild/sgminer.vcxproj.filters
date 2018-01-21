@@ -239,6 +239,9 @@
     <ClCompile Include="..\algorithm\decred.c">
       <Filter>Source Files\algorithm</Filter>
     </ClCompile>
+    <ClCompile Include="..\algorithm\pascalsolo.c">
+      <Filter>Source Files\algorithm</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\adl.h">
@@ -446,6 +449,9 @@
       <Filter>Header Files\sph</Filter>
     </ClInclude>
     <ClInclude Include="..\algorithm\sysendian.h">
+      <Filter>Header Files\algorithm</Filter>
+    </ClInclude>
+    <ClInclude Include="..\algorithm\pascalsolo.h">
       <Filter>Header Files\algorithm</Filter>
     </ClInclude>
   </ItemGroup>

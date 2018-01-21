@@ -2111,13 +2111,12 @@ static double get_work_blockdiff(const struct work *work)
     if (shift == 28) d *= 256.0; // testnet
     return d;
   }
-  else if(work->pool->has_pascaljson == true)
-  {
-	    double *bits = &work->pool->swork.diff;
-		shift = bits[0];
-		powdiff = (8 * (0x1d - 3)) - (8 * (shift - 3));;
-		diff64 = be32toh(*((uint32_t *)(bits))) & 0x0000000000FFFFFF;
-		numerator = work->pool->algorithm.diff_numerator << powdiff;
+  else if (work->pool->algorithm.type == ALGO_PASCALSOLO) {
+	double *bits = &work->pool->swork.diff;
+	shift = bits[0];
+	powdiff = (8 * (0x1d - 3)) - (8 * (shift - 3));;
+	diff64 = be32toh(*((uint32_t *)(bits))) & 0x0000000000FFFFFF;
+	numerator = work->pool->algorithm.diff_numerator << powdiff;
   }
   else 
   {
@@ -3728,7 +3727,8 @@ static inline bool should_roll(struct work *work)
  * reject blocks as invalid. */
 static inline bool can_roll(struct work *work)
 {
-	if (work->pool->has_pascaljson == true) {
+	// PASC only allows rolls 60s in the future
+	if (work->pool->algorithm.type == ALGO_PASCALSOLO) {
 		return (!work->stratum && work->pool && work->rolltime && !work->clone && work->rolls < 60 && !stale_work(work, false));
     } 
 	else
@@ -3762,9 +3762,16 @@ static void roll_work(struct work *work)
   uint32_t work_ntime;
   uint32_t ntime;
 
-  work_ntime = _get_work_time(work);
-  ntime = be32toh(work_ntime);
-  ntime++;
+  if (work->pool->algorithm.type == ALGO_PASCALSOLO)
+  {
+	  ((uint32_t *)work->data)[72] = ((uint32_t *)work->data)[72]++;
+  }
+  else
+  {
+	  work_ntime = _get_work_time(work);
+	  ntime = be32toh(work_ntime);
+	  ntime++;
+  }
 
   if (work->pool->algorithm.type == ALGO_DECRED) {
     uint32_t* data = (uint32_t*) work->data;
@@ -4041,7 +4048,7 @@ static bool stale_work(struct work *work, bool share)
 
     same_job = true;
 
-	if (pool->has_pascaljson == true)
+	if(pool->algorithm.type == ALGO_PASCALSOLO)
 	{
 		cg_rlock(&pool->data_lock);
 		same_job = work->PASCHeight == pool->PASCHeight;
@@ -5612,7 +5619,8 @@ out:
   return NULL;
 }
 
-const char *PASC_EXTRA_PREFIX = "   CippaLippa NiniX !!!";
+const char *PASC_EXTRA_PREFIX = "---GOOO-NiniX--Miner--Love-ITALY";
+//const char *PASC_EXTRA_PREFIX = "   Wolf0 (aka OhGodAPet) loves hindpaws: https://static1.e621.net/data/a2/5c/a25cc140d6bf344b821d1d7029a9a19a.png";
 
 /* Each pool has one stratum send thread for sending shares to avoid many
  * threads being created for submission since all sends need to be serialised
@@ -5679,16 +5687,13 @@ static void *stratum_sthread(void *userdata)
     else if (pool->algorithm.type == ALGO_SIA) {
       nonce = *((uint32_t *)(work->data + 32));
     }
-    else if (pool->algorithm.type == ALGO_PASCAL) {
-		if (pool->has_pascaljson == true) {
-			nonce = ((uint32_t *)work->data)[73];
-		}
-		else 
-		{
-			nonce = htobe32(*((uint32_t *)(work->data + 196)));
-		}
+    else if (pool->algorithm.type == ALGO_PASCAL) {	  
+	  nonce = htobe32(*((uint32_t *)(work->data + 196)));
     }
-    else {
+	else if (pool->algorithm.type == ALGO_PASCALSOLO) {
+	  nonce = ((uint32_t *)work->data)[73];
+	}
+	else {
       nonce = *((uint32_t *)(work->data + 76));
     }
     __bin2hex(noncehex, (const unsigned char *)&nonce, 4);
@@ -5708,8 +5713,7 @@ static void *stratum_sthread(void *userdata)
         "{\"params\": [\"%s\", \"%s\", \"%s\", \"%s\", \"%s\", \"%04x\"], \"id\": %d, \"method\": \"mining.submit\"}",
         pool->rpc_user, work->job_id, nonce2hex, work->ntime, noncehex, (opt_vote << 1) | 1, sshare->id);
 	}
-	else if (pool->has_pascaljson == true)
-	{
+	else if (pool->algorithm.type == ALGO_PASCALSOLO) {
 		char *ASCIIPayloadPrefix = bin2hex(work->data + 90, pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX));
 		uint32_t TimeStamp = (((int32_t *)work->data)[72]);
 		uint32_t Nonce = (((int32_t *)work->data)[73]);
@@ -6180,46 +6184,43 @@ static void gen_stratum_work(struct pool *pool, struct work *work)
   int i, j;
 
   cg_wlock(&pool->data_lock);
-  if (pool->has_pascaljson == true) {
-	  if (pool->PASCPayloadNonce + 1 > 255) pool->PASCPayloadNonce = 32;
-	  pool->PASCPayloadNonce = (pool->PASCPayloadNonce % 255);
-
-	  cg_dwlock(&pool->data_lock);
+  if (pool->algorithm.type == ALGO_PASCALSOLO) {
+     if (pool->PASCPayloadNonce + 1 > 255) pool->PASCPayloadNonce = 32;
+	    pool->PASCPayloadNonce = (pool->PASCPayloadNonce % 255);
+	    cg_dwlock(&pool->data_lock);
   } 
-  else
-  {
-	  if (pool->algorithm.type == ALGO_PASCAL) {
-		  /* TODO: refactor this */
-		  for (i = 0; i < 56; i += 8) {
-			  if (((pool->nonce2 >> i) & 0xff) < 0x2d) pool->nonce2 = (pool->nonce2 & (0xffffffffffffff00 << i)) + (0x002d2d2d2d2d2d2d >> (48 - i));
-			  if (((pool->nonce2 >> i) & 0xff) > 0xfe) pool->nonce2 = (pool->nonce2 & (0xffffffffffffff00 << i)) + (0x012d2d2d2d2d2d2d >> (48 - i));
-		  }
-		  if (((pool->nonce2 >> 56) & 0xff) < 0x2d) pool->nonce2 = 0x2d2d2d2d2d2d2d2d;
-		  if (((pool->nonce2 >> 56) & 0xff) > 0xfe) pool->nonce2 = 0x2d2d2d2d2d2d2d2d;
-	  }
-	  nonce2le = htole64(pool->nonce2);
-	  if (pool->algorithm.type != ALGO_DECRED && pool->algorithm.type != ALGO_SIA) {
-		  /* Update coinbase. Always use an LE encoded nonce2 to fill in values
-		  * from left to right and prevent overflow errors with small n2sizes */
-		  memcpy(pool->coinbase + pool->nonce2_offset, &nonce2le, pool->n2size);
-	  }
-	  work->nonce2 = pool->nonce2++;
-	  work->nonce2_len = pool->n2size;
-
-	  /* Downgrade to a read lock to read off the pool variables */
-	  cg_dwlock(&pool->data_lock);
-
-	  if (pool->algorithm.type != ALGO_DECRED && pool->algorithm.type != ALGO_SIA && pool->algorithm.type != ALGO_PASCAL) {
-		  /* Generate merkle root */
-		  pool->algorithm.gen_hash(pool->coinbase, pool->swork.cb_len, merkle_root);
-		  memcpy(merkle_sha, merkle_root, 32);
-		  for (i = 0; i < pool->swork.merkles; i++) {
-			  memcpy(merkle_sha + 32, pool->swork.merkle_bin[i], 32);
-			  gen_hash(merkle_sha, 64, merkle_root);
-			  memcpy(merkle_sha, merkle_root, 32);
-		  }
-	  }
+  else if (pool->algorithm.type == ALGO_PASCAL) {  
+     /* TODO: refactor this */
+	 for (i = 0; i < 56; i += 8) {
+	    if (((pool->nonce2 >> i) & 0xff) < 0x2d) pool->nonce2 = (pool->nonce2 & (0xffffffffffffff00 << i)) + (0x002d2d2d2d2d2d2d >> (48 - i));
+		if (((pool->nonce2 >> i) & 0xff) > 0xfe) pool->nonce2 = (pool->nonce2 & (0xffffffffffffff00 << i)) + (0x012d2d2d2d2d2d2d >> (48 - i));
+	 }
+	 if (((pool->nonce2 >> 56) & 0xff) < 0x2d) pool->nonce2 = 0x2d2d2d2d2d2d2d2d;
+	 if (((pool->nonce2 >> 56) & 0xff) > 0xfe) pool->nonce2 = 0x2d2d2d2d2d2d2d2d;
   }
+  nonce2le = htole64(pool->nonce2);
+	if (pool->algorithm.type != ALGO_DECRED && pool->algorithm.type != ALGO_SIA) {
+		/* Update coinbase. Always use an LE encoded nonce2 to fill in values
+		* from left to right and prevent overflow errors with small n2sizes */
+		memcpy(pool->coinbase + pool->nonce2_offset, &nonce2le, pool->n2size);
+	}
+	work->nonce2 = pool->nonce2++;
+	work->nonce2_len = pool->n2size;
+
+	/* Downgrade to a read lock to read off the pool variables */
+	cg_dwlock(&pool->data_lock);
+
+	if (pool->algorithm.type != ALGO_DECRED && pool->algorithm.type != ALGO_SIA && pool->algorithm.type != ALGO_PASCAL && pool->algorithm.type != ALGO_PASCALSOLO) {
+		/* Generate merkle root */
+		pool->algorithm.gen_hash(pool->coinbase, pool->swork.cb_len, merkle_root);
+		memcpy(merkle_sha, merkle_root, 32);
+		for (i = 0; i < pool->swork.merkles; i++) {
+			memcpy(merkle_sha + 32, pool->swork.merkle_bin[i], 32);
+			gen_hash(merkle_sha, 64, merkle_root);
+			memcpy(merkle_sha, merkle_root, 32);
+		}
+	}
+  
   applog(LOG_DEBUG, "[THR%d] gen_stratum_work() - algorithm = %s", work->thr_id, pool->algorithm.name);
 
   // Different for Neoscrypt because of Little Endian
@@ -6274,26 +6275,24 @@ static void gen_stratum_work(struct pool *pool, struct work *work)
     flip32(work->data + 32 + 8 + 8, pool->coinbase); // merkleroot
   }
   else if (pool->algorithm.type == ALGO_PASCAL) {
+	  uint32_t temp;
+      memcpy(work->data, pool->coinbase, pool->swork.cb_len);
+	  hex2bin((unsigned char *)&temp, pool->swork.ntime, 4);
+	  /* Add the nbits (big endianess). */
+	  ((uint32_t *)work->data)[48] = be32toh(temp);
+	  ((uint32_t *)work->data)[49] = 0;	  
+  }
+  else if (pool->algorithm.type == ALGO_PASCALSOLO) {
     uint32_t temp;
-	if (pool->has_pascaljson == true) {	
-   	   memcpy(work->data, pool->swork.part1, 90);
-   	   memcpy(work->data + 90, pool->swork.payload_prefix, pool->swork.prefixlen);
-   	   memcpy(work->data + 90 + pool->swork.prefixlen, &pool->PASCPayloadNonce, 1);
-	   memcpy(work->data + 90 + pool->swork.prefixlen + 1, PASC_EXTRA_PREFIX, strlen(PASC_EXTRA_PREFIX));
-	   memcpy(work->data + 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX), pool->swork.part3, 68);
-	   memcpy(work->data + 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX) + 68, &pool->swork.timestamp, 4);
-	   work->PASCDataLen = 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX) + 68 + 4;
-	   work->PASCHeight = pool->PASCHeight;
-	   applog(LOG_DEBUG, "Data is %d bytes, plus 4 byte nonce.", 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX) + 68 + 4);
-	}
-	else
-	{
-		memcpy(work->data, pool->coinbase, pool->swork.cb_len);
-		hex2bin((unsigned char *)&temp, pool->swork.ntime, 4);
-		/* Add the nbits (big endianess). */
-		((uint32_t *)work->data)[48] = be32toh(temp);
-		((uint32_t *)work->data)[49] = 0;
-	}
+    memcpy(work->data, pool->swork.part1, 90);
+   	memcpy(work->data + 90, pool->swork.payload_prefix, pool->swork.prefixlen);
+   	memcpy(work->data + 90 + pool->swork.prefixlen, &pool->PASCPayloadNonce, 1);
+	memcpy(work->data + 90 + pool->swork.prefixlen + 1, PASC_EXTRA_PREFIX, strlen(PASC_EXTRA_PREFIX));
+	memcpy(work->data + 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX), pool->swork.part3, 68);
+	memcpy(work->data + 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX) + 68, &pool->swork.timestamp, 4);
+	work->PASCDataLen = 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX) + 68 + 4;
+	work->PASCHeight = pool->PASCHeight;
+	applog(LOG_DEBUG, "Data is %d bytes, plus 4 byte nonce.", 90 + pool->swork.prefixlen + 1 + strlen(PASC_EXTRA_PREFIX) + 68 + 4);
   }
   else {
     data32 = (uint32_t *)merkle_sha;
@@ -6330,10 +6329,10 @@ static void gen_stratum_work(struct pool *pool, struct work *work)
 		  char *header, *merkle_hash;
 		  int datasize = 128;
 		  if (pool->algorithm.type == ALGO_DECRED) datasize = 180;
-		  else if (pool->algorithm.type == ALGO_PASCAL) datasize = 256;
+		  else if (pool->algorithm.type == ALGO_PASCAL || pool->algorithm.type == ALGO_PASCALSOLO) datasize = 256;
 
 		  header = bin2hex(work->data, datasize);
-		  if (pool->algorithm.type != ALGO_DECRED && pool->algorithm.type != ALGO_SIA && pool->algorithm.type != ALGO_PASCAL) {
+		  if (pool->algorithm.type != ALGO_DECRED && pool->algorithm.type != ALGO_SIA && pool->algorithm.type != ALGO_PASCAL && pool->algorithm.type != ALGO_PASCALSOLO) {
 			  merkle_hash = bin2hex((const unsigned char *)merkle_root, 32);
 			  applog(LOG_DEBUG, "[THR%d] Generated stratum merkle %s", work->thr_id, merkle_hash);
 			  free(merkle_hash);
@@ -6347,9 +6346,8 @@ static void gen_stratum_work(struct pool *pool, struct work *work)
 	  // For Neoscrypt use set_target_neoscrypt() function
 	  if (pool->algorithm.type == ALGO_NEOSCRYPT) {
 		  set_target_neoscrypt(work->target, work->sdiff, work->thr_id);
-	  }
-	  else {
-		  if (pool->algorithm.calc_midstate) pool->algorithm.calc_midstate(work);
+	  } else {
+	     if (pool->algorithm.calc_midstate) pool->algorithm.calc_midstate(work);
 		  set_target(work->target, work->sdiff, pool->algorithm.diff_multiplier2, work->thr_id);
 	  }
   }
@@ -7281,16 +7279,13 @@ static void rebuild_nonce(struct work *work, uint32_t nonce)
   else if (work->pool->algorithm.type == ALGO_DECRED) nonce_pos = 140;
   else if (work->pool->algorithm.type == ALGO_LBRY) nonce_pos = 108;
   else if (work->pool->algorithm.type == ALGO_SIA) nonce_pos = 32;
-  else if (work->pool->algorithm.type == ALGO_PASCAL) {
-	  if (work->pool->has_pascaljson == true)
-		 nonce_pos = 292;
-	  else nonce_pos = 196;
-  }
+  else if (work->pool->algorithm.type == ALGO_PASCAL) nonce_pos = 196;
+  else if (work->pool->algorithm.type == ALGO_PASCALSOLO) nonce_pos = 292;
 
   uint32_t *work_nonce = (uint32_t *)(work->data + nonce_pos);
-
+  
   *work_nonce = htole32(nonce);
-
+ 
   work->pool->algorithm.regenhash(work);
 }
 
@@ -7310,7 +7305,6 @@ bool test_nonce(struct work *work, uint32_t nonce)
   else {
     diff1targ = work->pool->algorithm.diff1targ;
   }
-
   return (le32toh(*hash_32) <= diff1targ);
 }
 
@@ -9013,7 +9007,6 @@ int main(int argc, char *argv[])
     free(cnfbuf);
     cnfbuf = NULL;
   }
-
   if (want_per_device_stats)
     opt_verbose = true;
 
@@ -9072,7 +9065,7 @@ int main(int argc, char *argv[])
     }
     most_devices = total_devices;
   }
-
+  
 #ifdef HAVE_CURSES
   adj_width(mining_threads, &dev_width);
 #endif
@@ -9127,7 +9120,7 @@ int main(int argc, char *argv[])
   }
   /* Set the currentpool to pool 0 */
   currentpool = pools[0];
-
+  
 #ifdef HAVE_SYSLOG_H
   if (use_syslog)
     openlog(PACKAGE, LOG_PID, LOG_USER);
